@@ -1,0 +1,8 @@
+{
+  "row_pitch_px": 26.694,
+  "in_row_spacing_px": 26.654,
+  "column_pitch_px": 13.327,
+  "x0": 3.417,
+  "y0": -10.969,
+  "note": "in_row_spacing_px = centre-to-centre distance between neighbouring pillars in the same row (used to set the scale)"
+}

@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HSV Tuner</title>
+<style>
+:root{
+  --bg:#f4f5f7; --panel:#ffffff; --ink:#1d2129; --ink2:#4b5260; --muted:#7a8291;
+  --line:#dde1e7; --accent:#2563eb; --fluid:#1f77d4; --bubble:#e8780c;
+  --danger:#c62828; --ok:#1b7f3b; --canvas-bg:#11151b; --iface:#1a9e3f;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14171c; --panel:#1c2027; --ink:#e8eaee; --ink2:#b4bac6; --muted:#858d9b;
+    --line:#2d333d; --accent:#5b8dff; --fluid:#4d9cf0; --bubble:#f29a3f;
+    --danger:#ef5350; --ok:#5cc87d; --canvas-bg:#0b0d10; --iface:#4cd472;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;overflow:hidden}
+aside{width:380px;min-width:380px;height:100vh;overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);padding:14px 16px 40px}
+main{flex:1;height:100vh;display:flex;flex-direction:column;min-width:0}
+h1{font-size:17px;margin:0 0 2px}
+.sub{color:var(--muted);font-size:12px;margin-bottom:10px}
+section{border-top:1px solid var(--line);padding:12px 0 10px}
+section h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);margin:0 0 8px;display:flex;justify-content:space-between;align-items:center}
+section h2 small{text-transform:none;letter-spacing:0;color:var(--muted);font-weight:400}
+.row{display:grid;grid-template-columns:78px 1fr 58px;gap:8px;align-items:center;margin:5px 0}
+.row label{color:var(--ink2);font-size:13px}
+.row input[type=number]{width:58px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=number]{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:3px 5px;font:inherit;font-size:13px}
+button{font:inherit;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.reset{width:100%;background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600;padding:10px;letter-spacing:.03em}
+.seg{display:flex;gap:0}
+.seg button{flex:1;border-radius:0}
+.seg button:first-child{border-radius:6px 0 0 6px}
+.seg button:last-child{border-radius:0 6px 6px 0}
+.seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat .k{font-size:12px;color:var(--ink2);display:flex;align-items:center;gap:6px}
+.stat .k i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.stat .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.stat .p{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.status{font-size:12px;color:var(--ok);min-height:17px;margin-top:6px}
+.status.warn{color:var(--danger)}
+.framebar{display:flex;gap:6px;align-items:center}
+.framebar input[type=range]{flex:1}
+.fname{font-size:12px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+details summary{cursor:pointer;color:var(--ink2);font-size:13px;margin:4px 0}
+.scalebox{border:1px dashed var(--line);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.scalebox.set{border-style:solid;border-color:var(--ok)}
+.sel{width:100%;padding:5px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px}
+.measuring canvas{cursor:copy !important}
+.grid4{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 10px;margin-top:6px}
+.grid4 label{font-size:12px;color:var(--ink2);display:flex;justify-content:space-between;align-items:center;gap:6px}
+.keys{display:grid;grid-template-columns:70px 1fr;gap:3px 8px;font-size:13px;color:var(--ink2)}
+.keys kbd{font:600 12px ui-monospace,Consolas,monospace;background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink);justify-self:start}
+.hint{font-size:12px;color:var(--muted);margin:4px 0 0}
+.topbar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);min-height:44px;flex-wrap:wrap}
+.topbar .src{color:var(--muted);font-size:12px;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.readout{font:12px ui-monospace,Consolas,monospace;color:var(--ink2);white-space:nowrap}
+.stage{flex:1;display:flex;gap:10px;padding:10px;min-height:0;justify-content:center;background:var(--canvas-bg)}
+.pane{display:flex;flex-direction:column;align-items:center;min-height:0;min-width:0}
+.pane .lbl{color:#c9ced8;font-size:12px;margin-bottom:4px;letter-spacing:.04em}
+.pane canvas{height:100%;max-height:100%;width:auto;max-width:100%;object-fit:contain;cursor:crosshair;image-rendering:auto;background:#000;min-height:0}
+.cwrap{flex:1;min-height:0;display:flex}
+.legend{display:flex;gap:14px;font-size:12px;color:#c9ced8;margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+#welcome{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:5}
+#welcome .card{max-width:560px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:26px 28px}
+#welcome h2{margin:0 0 6px;font-size:20px}
+#welcome p{color:var(--ink2);margin:8px 0}
+#welcome .btns{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 6px}
+#welcome code{background:var(--bg);padding:1px 5px;border-radius:4px}
+.progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:8px 0 4px}
+.progress > div{height:100%;width:0;background:var(--accent);transition:width .1s}
+#chartWrap{position:relative;margin-top:8px}
+#chart,#chart2{width:100%;height:170px;display:block}
+.ctitle{font-size:12px;color:var(--ink2);margin:10px 0 2px}
+#tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;white-space:nowrap;z-index:3}
+.clegend{display:flex;gap:14px;font-size:12px;color:var(--ink2);margin-top:4px}
+.clegend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:3px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+#busy{position:absolute;top:56px;right:16px;background:rgba(0,0,0,.7);color:#fff;font-size:12px;padding:4px 8px;border-radius:5px;display:none;z-index:4}
+</style>
+</head>
+<body>
+<aside>
+  <h1>HSV Tuner</h1>
+  <div class="sub">Fluid (blue) vs bubble area · pillars excluded</div>
+
+  <section>
+    <h2>Video <small id="videoCount"></small></h2>
+    <select id="videoSel" disabled style="width:100%;padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:13px"><option>No videos loaded</option></select>
+    <div class="fname" id="videoInfo"></div>
+  </section>
+
+  <section>
+    <h2>Frame <small id="frameCount"></small></h2>
+    <div class="framebar">
+      <button id="prev" title="Previous frame (a)">◀</button>
+      <input type="range" id="frame" min="0" max="0" value="0">
+      <button id="next" title="Next frame (d)">▶</button>
+    </div>
+    <div class="fname" id="fname">No frames loaded</div>
+  </section>
+
+  <section>
+    <h2>View <small>press <b>m</b> to switch</small></h2>
+    <div class="seg" id="viewSeg">
+      <button data-v="overlay" class="on">Overlay</button>
+      <button data-v="fluid">Fluid mask</button>
+      <button data-v="bubble">Bubble mask</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>This frame <small>areas as % of open channel</small></h2>
+    <div class="stats">
+      <div class="stat"><div class="k"><i style="background:var(--fluid)"></i>Fluid</div><div class="v" id="fluidPct">–</div><div class="p" id="fluidPx">–</div></div>
+      <div class="stat"><div class="k"><i style="background:var(--bubble)"></i>Bubble</div><div class="v" id="bubblePct">–</div><div class="p" id="bubblePx">–</div></div>
+      <div class="stat" style="grid-column:1 / -1"><div class="k"><i style="background:var(--iface)"></i>Bubble–liquid interface length</div><div class="v" id="ifaceLen">–</div><div class="p" id="ifaceSub">boundary between bubbles and liquid · pillar / wall contact excluded</div></div>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section>
+    <button class="reset" id="reset" title="Reset sliders to default values (r)">RESET TO DEFAULTS</button>
+    <p class="hint">Settings auto-save whenever you change them.</p>
+  </section>
+
+  <section>
+    <h2>Fluid threshold (HSV) <small>OpenCV ranges</small></h2>
+    <div id="thrSliders"></div>
+    <p class="hint">H = colour (0–179, blue ≈ 90–125) · S = how vivid · V = brightness. Hover over the image to read a pixel's H/S/V.</p>
+  </section>
+
+  <section>
+    <h2>Clean-up</h2>
+    <div id="cleanSliders"></div>
+    <p class="hint">Open removes specks of fluid · Close fills pinholes · Pillar pad grows the pillar mask to cover rims.</p>
+  </section>
+
+  <section>
+    <details>
+      <summary>Channel region</summary>
+      <div class="grid4">
+        <label>Top y <input type="number" id="roi_y0" min="0"></label>
+        <label>Bottom y <input type="number" id="roi_y1" min="0"></label>
+        <label>Left x <input type="number" id="roi_x0" min="0"></label>
+        <label>Right x <input type="number" id="roi_x1" min="0"></label>
+      </div>
+      <p class="hint">Areas outside the yellow box are ignored.</p>
+    </details>
+  </section>
+
+  <section id="scaleSec">
+    <h2>Scale <small>pixels → real units</small></h2>
+    <div class="scalebox" id="scaleNow">No scale set — results are in pixels</div>
+    <div class="row" style="grid-template-columns:78px 1fr"><label for="unitSel">Unit</label>
+      <select id="unitSel" class="sel"><option value="um">µm</option><option value="mm" selected>mm</option><option value="cm">cm</option></select></div>
+    <div class="seg" id="scaleSeg" style="margin:8px 0">
+      <button data-m="line" class="on">Measure line</button>
+      <button data-m="pillar">Pillar spacing</button>
+      <button data-m="direct">Enter directly</button>
+    </div>
+    <div class="smode" data-m="line">
+      <button id="measureBtn" style="width:100%">Click two points on the image…</button>
+      <div class="hint" id="lineInfo">Click both ends of something of known length (e.g. across the channel, or between pillar centres).</div>
+      <div class="row" style="grid-template-columns:1fr 90px"><label for="lineReal">Real length of line (<span class="ulab">mm</span>)</label><input type="number" id="lineReal" min="0" step="any" style="width:90px"></div>
+    </div>
+    <div class="smode" data-m="pillar" hidden>
+      <div class="row" style="grid-template-columns:1fr 90px"><label for="pillarReal">Pillar spacing, centre to centre in a row (<span class="ulab">mm</span>)</label><input type="number" id="pillarReal" min="0" step="any" style="width:90px"></div>
+      <div class="hint">In the images, neighbouring pillars in the same row are <b id="pillarPx">26.65</b> px apart.</div>
+    </div>
+    <div class="smode" data-m="direct" hidden>
+      <div class="row" style="grid-template-columns:1fr 90px"><label for="directReal">Size of one pixel (<span class="ulab">mm</span>)</label><input type="number" id="directReal" min="0" step="any" style="width:90px"></div>
+    </div>
+    <div class="btnrow" style="margin-top:8px"><button class="primary" id="applyScale">Set scale</button><button id="clearScale">Clear scale</button></div>
+  </section>
+
+  <section>
+    <h2>All frames</h2>
+    <div class="btnrow">
+      <button class="primary" id="runAll" disabled>Analyse all frames</button>
+      <button id="saveCsv" disabled>Save CSV</button>
+    </div>
+    <div class="progress"><div id="prog"></div></div>
+    <div class="hint" id="runInfo">Runs the current settings on every frame.</div>
+    <div id="chartWrap" hidden>
+      <div class="ctitle">Area (% of open channel)</div>
+      <canvas id="chart"></canvas>
+      <div class="clegend"><span><i style="background:var(--fluid)"></i>Fluid %</span><span><i style="background:var(--bubble)"></i>Bubble %</span></div>
+      <div class="ctitle" id="chart2Title">Bubble–liquid interface length (px)</div>
+      <canvas id="chart2"></canvas>
+      <div class="clegend"><span style="color:var(--muted)">click a point on either chart to view that frame</span></div>
+      <div id="tip"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Keys</h2>
+    <div class="keys">
+      <kbd>m</kbd><span>switch view (overlay / fluid / bubble)</span>
+      <kbd>a / d</kbd><span>previous / next frame (or ← / →)</span>
+      <kbd>r</kbd><span>reset to defaults</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Settings file</h2>
+    <div class="btnrow">
+      <button id="dlSettings">Download hsv_settings.json</button>
+    </div>
+    <p class="hint" id="settingsInfo">Shared with the Python scripts.</p>
+  </section>
+</aside>
+
+<main>
+  <div class="topbar">
+    <button class="primary" id="openBtn">Open folder…</button>
+    <span class="src" id="src">No folder open</span>
+    <span class="readout" id="readout">hover over the image to read pixel values</span>
+  </div>
+  <div class="stage" style="position:relative">
+    <div id="busy">working…</div>
+    <div class="pane"><div class="lbl">ORIGINAL</div><div class="cwrap"><canvas id="cOrig" width="384" height="1024"></canvas></div><div class="legend" style="visibility:hidden"><span><i></i>&nbsp;</span></div></div>
+    <div class="pane"><div class="lbl" id="resLbl">RESULT — OVERLAY</div><div class="cwrap"><canvas id="cRes" width="384" height="1024"></canvas></div>
+      <div class="legend" id="legend"><span><i style="background:#0078ff"></i>fluid</span><span><i style="background:#ff8c00"></i>bubble</span><span><i style="background:#808080"></i>pillar</span><span><i style="background:#50ff50"></i>interface</span><span><i style="background:#ffd400"></i>channel box</span></div>
+    </div>
+    <div id="welcome">
+      <div class="card">
+        <h2>Open your Image Recognition folder</h2>
+        <p>Choose your <b>Image Recognition</b> folder (the one containing <code>Videos</code>). The tuner lists every processed video in <code>Videos</code>, and uses <code>pillar_mask.png</code> and <code>hsv_settings.json</code> from the Image Recognition folder. Results are saved to <code>Results</code>.</p>
+        <div class="btns">
+          <button class="primary" id="openBtn2">Open folder…</button>
+          <button id="pickBtn" type="button">Choose folder (any browser)</button>
+          <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+        </div>
+        <p class="hint"><b>Open folder</b> (Chrome / Edge) can save settings and results straight back into the folder. <b>Choose folder</b> works in every browser, but saves by downloading files instead.</p>
+        <p class="hint">Nothing is uploaded — everything runs in this page on your computer.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Settings (same keys as hsv_settings.json used by the Python scripts)
+// ---------------------------------------------------------------------------
+const DEFAULTS = {roi_y0:44, roi_y1:912, roi_x0:5, roi_x1:376,
+  h_min:88, h_max:125, s_min:100, s_max:255, v_min:40, v_max:255,
+  open_k:3, close_k:3, pillar_pad:1};
+const SLIDER_KEYS = ["h_min","h_max","s_min","s_max","v_min","v_max","open_k","close_k","pillar_pad"];
+const SLIDERS = [
+  {k:"h_min",l:"H min",max:179,g:"thr"},{k:"h_max",l:"H max",max:179,g:"thr"},
+  {k:"s_min",l:"S min",max:255,g:"thr"},{k:"s_max",l:"S max",max:255,g:"thr"},
+  {k:"v_min",l:"V min",max:255,g:"thr"},{k:"v_max",l:"V max",max:255,g:"thr"},
+  {k:"open_k",l:"Open k",max:15,g:"clean"},{k:"close_k",l:"Close k",max:15,g:"clean"},
+  {k:"pillar_pad",l:"Pillar pad",max:5,g:"clean"},
+];
+const ROI_KEYS = ["roi_y0","roi_y1","roi_x0","roi_x1"];
+let FPS = 30, STEP = 10;              // per video, from video_info.json
+const EMBEDDED_PILLAR_MASK = "data:image/png;base64,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";
+const LS_KEY = "hsvTuner.settings";
+const LS_STATE = "hsvTuner.state";   // personal: last video/frame (not written to the shared file)
+
+let S = {...DEFAULTS, last_frame:0, mm_per_px:null, scale_unit:"mm", scale_source:""};
+let frames = [];          // [{name, file:()=>Promise<File>}]
+let dirHandle = null;     // File System Access handle (Chrome/Edge)
+let W = 384, H = 1024;
+let pillarBase = null;    // Uint8Array 0/1
+const pillarPadCache = new Map();
+let cur = 0, view = "overlay";
+let results = null;
+let pillarSource = "";
+
+const $ = id => document.getElementById(id);
+const statusEl = $("status");
+function setStatus(msg, warn){ statusEl.textContent = msg; statusEl.classList.toggle("warn", !!warn); }
+
+// ---------------------------------------------------------------------------
+// Build slider rows
+// ---------------------------------------------------------------------------
+const sliderEls = {};
+for (const d of SLIDERS){
+  const row = document.createElement("div"); row.className = "row";
+  row.innerHTML = `<label for="s_${d.k}">${d.l}</label><input type="range" id="s_${d.k}" min="0" max="${d.max}" step="1"><input type="number" min="0" max="${d.max}" step="1" id="n_${d.k}">`;
+  $(d.g === "thr" ? "thrSliders" : "cleanSliders").appendChild(row);
+  const r = row.querySelector("input[type=range]"), n = row.querySelector("input[type=number]");
+  sliderEls[d.k] = {r, n};
+  const onv = v => { v = Math.max(0, Math.min(d.max, Math.round(+v || 0))); S[d.k] = v; r.value = v; n.value = v; changed(); };
+  r.addEventListener("input", () => onv(r.value));
+  n.addEventListener("change", () => onv(n.value));
+}
+for (const k of ROI_KEYS){
+  $(k).addEventListener("change", e => { S[k] = Math.max(0, Math.round(+e.target.value || 0)); clampRoi(); syncUI(); changed(); });
+}
+
+function clampRoi(){
+  S.roi_y0 = Math.min(S.roi_y0, H-1); S.roi_y1 = Math.min(Math.max(S.roi_y1, S.roi_y0+1), H);
+  S.roi_x0 = Math.min(S.roi_x0, W-1); S.roi_x1 = Math.min(Math.max(S.roi_x1, S.roi_x0+1), W);
+}
+function syncUI(){
+  for (const d of SLIDERS){ sliderEls[d.k].r.value = S[d.k]; sliderEls[d.k].n.value = S[d.k]; }
+  for (const k of ROI_KEYS) $(k).value = S[k];
+  $("unitSel").value = S.scale_unit || "mm"; updateScaleUI();
+}
+
+// ---------------------------------------------------------------------------
+// Auto-save
+// ---------------------------------------------------------------------------
+let saveTimer = null;
+function changed(rerender = true){
+  if (rerender) scheduleRender();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveSettings, 400);
+}
+async function saveSettings(){
+  const out = {}; for (const k of [...ROI_KEYS, ...SLIDER_KEYS]) out[k] = S[k];
+  out.mm_per_px = S.mm_per_px; out.scale_unit = S.scale_unit; out.scale_source = S.scale_source;
+  const json = JSON.stringify(out, null, 2);
+  try { localStorage.setItem(LS_STATE, JSON.stringify({last_video:S.last_video || null, last_frame:cur})); } catch(e) {}
+  try { localStorage.setItem(LS_KEY, json); } catch(e) {}
+  const t = new Date().toLocaleTimeString();
+  if (dirHandle){
+    try {
+      const fh = await dirHandle.getFileHandle("hsv_settings.json", {create:true});
+      const w = await fh.createWritable(); await w.write(json); await w.close();
+      setStatus(`Auto-saved to hsv_settings.json · ${t}`);
+      return;
+    } catch(e){ setStatus("Could not write hsv_settings.json (" + e.message + ") — saved in browser", true); return; }
+  }
+  setStatus(`Auto-saved in browser · ${t} (use Download to update the file)`);
+}
+$("dlSettings").onclick = () => {
+  const out = {}; for (const k of [...ROI_KEYS, ...SLIDER_KEYS]) out[k] = S[k];
+  out.mm_per_px = S.mm_per_px; out.scale_unit = S.scale_unit; out.scale_source = S.scale_source;
+  download("hsv_settings.json", JSON.stringify(out, null, 2), "application/json");
+};
+function download(name, text, type){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], {type}));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function applySettings(obj){
+  for (const k of [...ROI_KEYS, ...SLIDER_KEYS]) if (obj[k] !== undefined && obj[k] !== null) S[k] = Math.round(+obj[k]);
+  if ("last_frame" in obj) S.last_frame = +obj.last_frame || 0;
+  if ("mm_per_px" in obj) S.mm_per_px = obj.mm_per_px > 0 ? +obj.mm_per_px : null;
+  if (obj.scale_unit && UNITS_MM[obj.scale_unit]) S.scale_unit = obj.scale_unit;
+  if ("scale_source" in obj) S.scale_source = obj.scale_source || "";
+  if (obj.last_video) S.last_video = obj.last_video;
+}
+
+$("reset").onclick = doReset;
+function doReset(){
+  for (const k of SLIDER_KEYS) S[k] = DEFAULTS[k];
+  syncUI(); changed(); setStatus("Reset to default values");
+}
+
+// ---------------------------------------------------------------------------
+// Opening the folder: Image Recognition/
+//   Videos/<name>_every10/frame_*.png (+ video_info.json)   <- processed videos
+//   pillar_mask.png, hsv_settings.json                       <- shared
+//   Results/<name>_areas.csv                                 <- written here
+// ---------------------------------------------------------------------------
+let videos = [];          // [{name, frames:[{name,file}], info}]
+let curVideo = -1;
+// original video frame number: frame_034.png -> 34 * step
+function origFrame(i){ const m = /(\d+)/.exec(frames[i].name); return (m ? +m[1] : i) * STEP; }
+const isFrame = n => /\.png$/i.test(n) && /^frame_/i.test(n);
+const sortFrames = l => l.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
+
+async function scanVideoDir(name, d){
+  const fr = []; let info = null;
+  for await (const [n, h] of d.entries()){
+    if (h.kind !== "file") continue;
+    if (isFrame(n)) fr.push({name:n, file:() => h.getFile()});
+    else if (n === "video_info.json"){ try { info = JSON.parse(await (await h.getFile()).text()); } catch(e){} }
+  }
+  return fr.length ? {name, frames:sortFrames(fr), info} : null;
+}
+async function openWithPicker(){
+  if (!window.showDirectoryPicker){
+    alertMsg("This browser can't open folders directly — use “Choose folder (any browser)” instead.");
+    $("dirInput").click(); return;
+  }
+  let dir;
+  try { dir = await window.showDirectoryPicker({id:"hsv-tuner", mode:"readwrite"}); }
+  catch(e){ return; }  // cancelled
+  setStatus("Scanning for videos…");
+  let vroot = null;
+  try { vroot = await dir.getDirectoryHandle("Videos"); } catch(e){}
+  const found = [];
+  const scanRoot = async root => {
+    for await (const [n, h] of root.entries()){
+      if (h.kind === "directory" && n !== "Raw"){ const v = await scanVideoDir(n, h); if (v) found.push(v); }
+    }
+  };
+  if (vroot) await scanRoot(vroot);
+  else { await scanRoot(dir); if (!found.length){ const v = await scanVideoDir(dir.name, dir); if (v) found.push(v); } }
+  let pillarFile = null, settingsObj = null;
+  try { pillarFile = await (await dir.getFileHandle("pillar_mask.png")).getFile(); } catch(e){}
+  try { PILLAR_SPACING_PX = +JSON.parse(await (await (await dir.getFileHandle("pillar_grid.json")).getFile()).text()).in_row_spacing_px || PILLAR_SPACING_PX; } catch(e){}
+  try { settingsObj = JSON.parse(await (await (await dir.getFileHandle("hsv_settings.json")).getFile()).text()); } catch(e){}
+  dirHandle = dir;
+  await loadAll(found, pillarFile, settingsObj, dir.name + (vroot ? " / Videos" : ""), true, !!vroot);
+}
+function alertMsg(m){ setStatus(m, true); }
+$("openBtn").onclick = openWithPicker;
+$("openBtn2").onclick = openWithPicker;
+$("pickBtn").onclick = () => $("dirInput").click();
+$("dirInput").addEventListener("change", async e => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+  const parts = f => (f.webkitRelativePath || f.name).split("/");
+  const hasVideosDir = files.some(f => parts(f).length > 2 && parts(f)[1] === "Videos");
+  const groups = new Map();
+  for (const f of files){
+    const p = parts(f); if (p.includes("Raw")) continue;
+    if (hasVideosDir && p[1] !== "Videos") continue;
+    const dirName = p.length >= 2 ? p[p.length - 2] : p[0];
+    if (!groups.has(dirName)) groups.set(dirName, {name:dirName, frames:[], infoFile:null});
+    const g = groups.get(dirName);
+    if (isFrame(f.name)) g.frames.push({name:f.name, file:async () => f});
+    else if (f.name === "video_info.json") g.infoFile = f;
+  }
+  const found = [];
+  for (const g of groups.values()){
+    if (!g.frames.length) continue;
+    let info = null; if (g.infoFile) try { info = JSON.parse(await g.infoFile.text()); } catch(err){}
+    found.push({name:g.name, frames:sortFrames(g.frames), info});
+  }
+  const top = files.filter(f => parts(f).length <= 2);
+  const pillarFile = top.find(f => f.name === "pillar_mask.png") || null;
+  const gf = top.find(f => f.name === "pillar_grid.json");
+  if (gf) try { PILLAR_SPACING_PX = +JSON.parse(await gf.text()).in_row_spacing_px || PILLAR_SPACING_PX; } catch(err){}
+  const sf = top.find(f => f.name === "hsv_settings.json");
+  let settingsObj = null; if (sf) try { settingsObj = JSON.parse(await sf.text()); } catch(err){}
+  dirHandle = null;
+  await loadAll(found, pillarFile, settingsObj, parts(files[0])[0], false, hasVideosDir);
+  e.target.value = "";
+});
+
+async function loadAll(found, pillarFile, settingsObj, srcName, canWrite, hasVideosDir){
+  if (!found.length){ alertMsg("No processed videos found. Choose the Image Recognition folder (it should contain a Videos folder with *_every10 sub-folders)."); return; }
+  found.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
+  videos = found;
+  // settings: file in folder > browser storage > defaults
+  S = {...DEFAULTS, last_frame:0, mm_per_px:null, scale_unit:"mm", scale_source:"", last_video:null};
+  let from = "defaults";
+  if (settingsObj){ applySettings(settingsObj); from = "hsv_settings.json"; }
+  else { try { const ls = localStorage.getItem(LS_KEY); if (ls){ applySettings(JSON.parse(ls)); from = "browser storage"; } } catch(e){} }
+  try { const st = JSON.parse(localStorage.getItem(LS_STATE) || "{}"); if (st.last_video) S.last_video = st.last_video; if (st.last_frame != null) S.last_frame = st.last_frame; } catch(e){}
+  const first = await decode(await videos[0].frames[0].file());
+  W = first.width; H = first.height;
+  clampRoi();
+  pillarBase = null; pillarSource = ""; pillarPadCache.clear();
+  try {
+    const src = pillarFile || await (await fetch(EMBEDDED_PILLAR_MASK)).blob();
+    const pm = await decode(src);
+    if (pm.width === W && pm.height === H){
+      pillarBase = new Uint8Array(W*H);
+      for (let i = 0; i < W*H; i++) pillarBase[i] = pm.data[i*4] > 127 ? 1 : 0;
+      pillarSource = pillarFile ? "pillar_mask.png" : "built-in pillar mask";
+    }
+  } catch(e){ console.warn(e); }
+  if (!pillarBase){ pillarBase = new Uint8Array(W*H); pillarSource = "NO pillar mask (size mismatch)"; }
+  $("cOrig").width = $("cRes").width = W; $("cOrig").height = $("cRes").height = H;
+  const sel = $("videoSel"); sel.innerHTML = "";
+  videos.forEach((v, i) => { const o = document.createElement("option"); o.value = i; o.textContent = v.name.replace(/_every\d+$/, ""); sel.appendChild(o); });
+  sel.disabled = false;
+  $("videoCount").textContent = `${videos.length} video${videos.length > 1 ? "s" : ""}`;
+  $("src").textContent = `${srcName} · ${pillarSource}` + (canWrite ? " · saving into folder" : " · read-only (downloads)") + (hasVideosDir ? "" : " · tip: open the Image Recognition folder");
+  $("settingsInfo").textContent = canWrite ? "Auto-saves into hsv_settings.json in your Image Recognition folder (shared with the Python scripts)." :
+    "Auto-saves in this browser. Click Download and put the file in your Image Recognition folder to share with the Python scripts.";
+  $("welcome").style.display = "none";
+  $("runAll").disabled = false;
+  syncUI();
+  let vi = videos.findIndex(v => v.name === S.last_video); if (vi < 0) vi = 0;
+  selectVideo(vi, vi === videos.findIndex(v => v.name === S.last_video));
+  setStatus(`Loaded ${videos.length} video(s) · settings from ${from}`);
+}
+
+function selectVideo(i, keepFrame){
+  curVideo = i; const v = videos[i];
+  $("videoSel").value = i;
+  frames = v.frames; cache.clear(); results = null;
+  $("chartWrap").hidden = true; $("saveCsv").disabled = true; $("prog").style.width = "0";
+  $("runInfo").textContent = "Runs the current settings on every frame of this video.";
+  FPS = (v.info && v.info.fps) || 30; STEP = (v.info && v.info.step) || 10;
+  const fr = $("frame"); fr.max = frames.length - 1;
+  cur = keepFrame ? Math.min(Math.max(0, S.last_frame | 0), frames.length - 1) : 0; fr.value = cur;
+  $("frameCount").textContent = `${frames.length} frames`;
+  const dur = v.info && v.info.source_frames ? (v.info.source_frames / FPS).toFixed(0) + " s" : "";
+  $("videoInfo").textContent = `${frames.length} frames · every ${STEP}th frame @ ${FPS.toFixed(2)} fps` + (dur ? ` · ${dur} of video` : "");
+  S.last_video = v.name;
+  if (!keepFrame){ clearTimeout(saveTimer); saveTimer = setTimeout(saveSettings, 400); }
+  scheduleRender();
+}
+$("videoSel").addEventListener("change", e => selectVideo(+e.target.value, false));
+
+// ---------------------------------------------------------------------------
+// Image decoding + OpenCV-identical BGR->HSV (8-bit)
+// ---------------------------------------------------------------------------
+const work = document.createElement("canvas");
+const wctx = work.getContext("2d", {willReadFrequently:true});
+async function decode(blob){
+  const bmp = await createImageBitmap(blob, {colorSpaceConversion:"none", premultiplyAlpha:"none"});
+  work.width = bmp.width; work.height = bmp.height;
+  wctx.clearRect(0, 0, bmp.width, bmp.height);
+  wctx.drawImage(bmp, 0, 0);
+  const id = wctx.getImageData(0, 0, bmp.width, bmp.height);
+  bmp.close && bmp.close();
+  return id;
+}
+const SDIV = new Int32Array(256), HDIV = new Int32Array(256);
+for (let i = 1; i < 256; i++){ SDIV[i] = Math.round((255 << 12) / i); HDIV[i] = Math.round((180 << 12) / (6 * i)); }
+function toHSV(data, n){
+  const h = new Uint8Array(n), s = new Uint8Array(n), v = new Uint8Array(n);
+  const half = 1 << 11;
+  for (let i = 0, j = 0; i < n; i++, j += 4){
+    const r = data[j], g = data[j+1], b = data[j+2];
+    let mx = r, mn = r;
+    if (g > mx) mx = g; if (b > mx) mx = b;
+    if (g < mn) mn = g; if (b < mn) mn = b;
+    const diff = mx - mn;
+    v[i] = mx;
+    s[i] = (diff * SDIV[mx] + half) >> 12;
+    let hh;
+    if (mx === r) hh = g - b;
+    else if (mx === g) hh = b - r + 2 * diff;
+    else hh = r - g + 4 * diff;
+    hh = (hh * HDIV[diff] + half) >> 12;
+    if (hh < 0) hh += 180;
+    h[i] = hh > 255 ? 255 : hh;
+  }
+  return {h, s, v};
+}
+const cache = new Map();   // small LRU of decoded frames
+async function getFrame(i){
+  if (cache.has(i)){ const f = cache.get(i); cache.delete(i); cache.set(i, f); return f; }
+  const img = await decode(await frames[i].file());
+  const f = {img, hsv: toHSV(img.data, img.width * img.height)};
+  cache.set(i, f);
+  while (cache.size > 12) cache.delete(cache.keys().next().value);
+  return f;
+}
+
+// ---------------------------------------------------------------------------
+// Morphology (matches cv2 MORPH_ELLIPSE kernels, default borders)
+// ---------------------------------------------------------------------------
+function ellipseRows(k){
+  const r = Math.floor(k / 2), c = r, rows = [];
+  const inv = r ? 1 / (r * r) : 0;
+  for (let i = 0; i < k; i++){
+    const dy = i - r; let j1 = 0, j2 = 0;
+    if (Math.abs(dy) <= r){
+      const dx = Math.round(c * Math.sqrt((r * r - dy * dy) * inv));
+      j1 = Math.max(c - dx, 0); j2 = Math.min(c + dx + 1, k);
+    }
+    if (j2 > j1) rows.push({dy, lo:j1 - c, hi:j2 - 1 - c});
+  }
+  return rows;
+}
+function morph(src, k, erode){
+  const rows = ellipseRows(k), out = new Uint8Array(W * H), W1 = W + 1;
+  const P = new Int32Array(H * W1);
+  for (let y = 0; y < H; y++){ let acc = 0; const o = y * W1, so = y * W; for (let x = 0; x < W; x++){ acc += src[so + x]; P[o + x + 1] = acc; } }
+  for (let y = 0; y < H; y++){
+    for (let x = 0; x < W; x++){
+      let res = erode ? 1 : 0;
+      for (let t = 0; t < rows.length; t++){
+        const rw = rows[t], yy = y + rw.dy;
+        if (yy < 0 || yy >= H) continue;             // outside image: ignored
+        let a = x + rw.lo, b = x + rw.hi;
+        if (a < 0) a = 0; if (b > W - 1) b = W - 1;
+        if (a > b) continue;
+        const ones = P[yy * W1 + b + 1] - P[yy * W1 + a];
+        if (erode){ if (ones !== b - a + 1){ res = 0; break; } }
+        else if (ones > 0){ res = 1; break; }
+      }
+      out[y * W + x] = res;
+    }
+  }
+  return out;
+}
+const openOp  = (m, k) => morph(morph(m, k, true), k, false);
+const closeOp = (m, k) => morph(morph(m, k, false), k, true);
+
+function getPillar(pad){
+  if (!pillarPadCache.has(pad)) pillarPadCache.set(pad, pad > 0 ? morph(pillarBase, 2 * pad + 1, false) : pillarBase);
+  return pillarPadCache.get(pad);
+}
+
+// ---------------------------------------------------------------------------
+// Segmentation — same steps as segmentation.py
+// ---------------------------------------------------------------------------
+function segment(hsv, st){
+  const N = W * H, {h, s, v} = hsv;
+  let fluid = new Uint8Array(N);
+  for (let i = 0; i < N; i++){
+    fluid[i] = (h[i] >= st.h_min && h[i] <= st.h_max && s[i] >= st.s_min && s[i] <= st.s_max && v[i] >= st.v_min && v[i] <= st.v_max) ? 1 : 0;
+  }
+  if (st.open_k > 1)  fluid = openOp(fluid, st.open_k);
+  if (st.close_k > 1) fluid = closeOp(fluid, st.close_k);
+  const pil = getPillar(st.pillar_pad);
+  const cls = new Uint8Array(N);   // 0 outside ROI, 1 fluid, 2 bubble, 3 pillar
+  let nf = 0, nb = 0;
+  for (let y = st.roi_y0; y < st.roi_y1; y++){
+    for (let x = st.roi_x0; x < st.roi_x1; x++){
+      const i = y * W + x;
+      if (pil[i]) cls[i] = 3;
+      else if (fluid[i]){ cls[i] = 1; nf++; }
+      else { cls[i] = 2; nb++; }
+    }
+  }
+  const open = nf + nb;
+  // Bubble-liquid interface length: Cauchy-Crofton over 4 directions (same as segmentation.py)
+  //   L = pi/8 * (n0 + n90 + (n45 + n135)/sqrt(2)),  n = bubble/fluid neighbour pairs per direction
+  const iface = new Uint8Array(N);
+  let n0 = 0, n90 = 0, n45 = 0, n135 = 0;
+  const y0 = Math.max(st.roi_y0 - 1, 0), y1 = Math.min(st.roi_y1, H - 1);
+  for (let y = y0; y < y1 + 1; y++){
+    for (let x = 0; x < W; x++){
+      const i = y * W + x, c = cls[i];
+      if (c !== 1 && c !== 2) continue;
+      const o = 3 - c;                                    // the other class
+      if (x < W - 1 && cls[i + 1] === o){ n0++; iface[c === 2 ? i : i + 1] = 1; }
+      if (y < H - 1){
+        if (cls[i + W] === o){ n90++; iface[c === 2 ? i : i + W] = 1; }
+        if (x > 0 && cls[i + W - 1] === o) n45++;
+        if (x < W - 1 && cls[i + W + 1] === o) n135++;
+      }
+    }
+  }
+  const interface_px = Math.PI / 8 * (n0 + n90 + (n45 + n135) / Math.SQRT2);
+  return {cls, iface, interface_px, fluid_px:nf, bubble_px:nb, open_px:open, fluid_frac:nf / Math.max(open, 1), bubble_frac:nb / Math.max(open, 1)};
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+const ctxO = $("cOrig").getContext("2d"), ctxR = $("cRes").getContext("2d");
+let lastSeg = null, lastFrame = null, renderPending = false, renderToken = 0;
+function scheduleRender(){
+  if (renderPending || !frames.length) return;
+  renderPending = true;
+  requestAnimationFrame(async () => { renderPending = false; await render(); });
+}
+async function render(){
+  const token = ++renderToken;
+  $("busy").style.display = "block";
+  const idx = cur;
+  const f = await getFrame(idx);
+  if (token !== renderToken){ return; }
+  const r = segment(f.hsv, S);
+  lastSeg = r; lastFrame = f;
+  ctxO.putImageData(f.img, 0, 0);
+  const out = ctxR.createImageData(W, H), d = out.data, src = f.img.data, N = W * H;
+  if (view === "overlay"){
+    const A = 0.45, B = 1 - A;
+    const COL = [null, [0,120,255], [255,140,0], [128,128,128]];
+    for (let i = 0, j = 0; i < N; i++, j += 4){
+      const c = r.cls[i];
+      if (c === 0){ d[j] = src[j]*0.3; d[j+1] = src[j+1]*0.3; d[j+2] = src[j+2]*0.3; }
+      else if (r.iface[i]){ d[j] = 80; d[j+1] = 255; d[j+2] = 80; }
+      else { const col = COL[c]; d[j] = src[j]*B + col[0]*A; d[j+1] = src[j+1]*B + col[1]*A; d[j+2] = src[j+2]*B + col[2]*A; }
+      d[j+3] = 255;
+    }
+  } else {
+    const want = view === "fluid" ? 1 : 2;
+    for (let i = 0, j = 0; i < N; i++, j += 4){ const on = r.cls[i] === want ? 255 : 0; d[j] = d[j+1] = d[j+2] = on; d[j+3] = 255; }
+  }
+  ctxR.putImageData(out, 0, 0);
+  // channel box
+  ctxR.strokeStyle = "#ffd400"; ctxR.lineWidth = 1;
+  ctxR.strokeRect(S.roi_x0 + 0.5, S.roi_y0 + 0.5, S.roi_x1 - S.roi_x0 - 1, S.roi_y1 - S.roi_y0 - 1);
+  $("fluidPct").textContent = (100 * r.fluid_frac).toFixed(1) + "%";
+  $("bubblePct").textContent = (100 * r.bubble_frac).toFixed(1) + "%";
+  $("ifaceLen").textContent = fmtLen(r.interface_px);
+  $("ifaceSub").textContent = (unitK() ? `${Math.round(r.interface_px).toLocaleString()} px · ` : "") + "boundary between bubbles and liquid · pillar / wall contact excluded";
+  $("fluidPx").textContent = unitK() ? fmtArea(r.fluid_px) : r.fluid_px.toLocaleString() + " px";
+  $("bubblePx").textContent = unitK() ? fmtArea(r.bubble_px) : r.bubble_px.toLocaleString() + " px";
+  drawMeasureLine();
+  const orig = origFrame(idx);
+  $("fname").textContent = `${frames[idx].name} · original frame ${orig} · t = ${(orig / FPS).toFixed(2)} s`;
+  $("resLbl").textContent = "RESULT — " + {overlay:"OVERLAY", fluid:"FLUID MASK", bubble:"BUBBLE MASK"}[view];
+  $("legend").style.visibility = view === "overlay" ? "visible" : "hidden";
+  $("busy").style.display = "none";
+  if (results) drawChart();
+}
+
+// ---------------------------------------------------------------------------
+// Scale: pixels -> real units (stored as mm_per_px + display unit in hsv_settings.json)
+// ---------------------------------------------------------------------------
+const UNITS_MM = {um:0.001, mm:1, cm:10}, UNIT_LABEL = {um:"µm", mm:"mm", cm:"cm"};
+let PILLAR_SPACING_PX = 26.654;     // updated from pillar_grid.json if present
+let scaleMode = "line", measuring = false, mPts = [];
+const unitK = () => S.mm_per_px ? S.mm_per_px / UNITS_MM[S.scale_unit || "mm"] : null;   // display-units per px
+const ulab = () => UNIT_LABEL[S.scale_unit || "mm"];
+const nfmt = v => v >= 100 ? v.toLocaleString(undefined, {maximumFractionDigits:1}) : v.toPrecision(4);
+function fmtLen(px){ const k = unitK(); return k ? `${nfmt(px * k)} ${ulab()}` : `${Math.round(px).toLocaleString()} px`; }
+function fmtArea(px){ const k = unitK(); return k ? `${nfmt(px * k * k)} ${ulab()}²` : `${Math.round(px).toLocaleString()} px`; }
+function updateScaleUI(){
+  const k = unitK(), box = $("scaleNow");
+  box.classList.toggle("set", !!k);
+  box.innerHTML = k ? `<b>1 px = ${k.toPrecision(4)} ${ulab()}</b> &nbsp;(${(1 / k).toPrecision(4)} px per ${ulab()})` +
+      (S.scale_source ? `<div class="hint" style="margin:2px 0 0">set from: ${S.scale_source}</div>` : "")
+    : "No scale set — results are in pixels";
+  document.querySelectorAll(".ulab").forEach(e => e.textContent = UNIT_LABEL[$("unitSel").value]);
+  $("pillarPx").textContent = PILLAR_SPACING_PX.toFixed(2);
+}
+$("unitSel").addEventListener("change", () => { S.scale_unit = $("unitSel").value; updateScaleUI(); changed(); if (results) drawChart(); });
+for (const b of $("scaleSeg").children) b.onclick = () => {
+  scaleMode = b.dataset.m;
+  for (const x of $("scaleSeg").children) x.classList.toggle("on", x === b);
+  document.querySelectorAll(".smode").forEach(d => d.hidden = d.dataset.m !== scaleMode);
+};
+$("measureBtn").onclick = () => {
+  if (!frames.length) return;
+  measuring = !measuring; mPts = measuring ? [] : mPts;
+  document.querySelector(".stage").classList.toggle("measuring", measuring);
+  $("measureBtn").textContent = measuring ? "Cancel — click two points on the image" : "Click two points on the image…";
+  $("lineInfo").textContent = measuring ? "Click the first end…" : (mPts.length === 2 ? lineText() : "Click both ends of something of known length.");
+  drawMeasureLine();
+};
+function lineLen(){ return mPts.length === 2 ? Math.hypot(mPts[1][0] - mPts[0][0], mPts[1][1] - mPts[0][1]) : 0; }
+function lineText(){ const L = lineLen(); return `Line: ${L.toFixed(1)} px` + (unitK() ? ` (= ${nfmt(L * unitK())} ${ulab()} with the current scale)` : ""); }
+function canvasXY(cv, e){
+  const rect = cv.getBoundingClientRect(), sc = Math.min(rect.width / W, rect.height / H);
+  const ox = (rect.width - W * sc) / 2, oy = (rect.height - H * sc) / 2;
+  return [(e.clientX - rect.left - ox) / sc, (e.clientY - rect.top - oy) / sc];
+}
+function drawMeasureLine(){
+  if (!mPts.length) return;
+  for (const ctx of [ctxO, ctxR]){
+    ctx.save(); ctx.strokeStyle = "#ffff00"; ctx.fillStyle = "#ffff00"; ctx.lineWidth = 1.5;
+    for (const [x, y] of mPts){ ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke(); }
+    if (mPts.length === 2){ ctx.beginPath(); ctx.moveTo(...mPts[0]); ctx.lineTo(...mPts[1]); ctx.stroke(); }
+    ctx.restore();
+  }
+}
+for (const cv of [$("cOrig"), $("cRes")]){
+  cv.addEventListener("click", e => {
+    if (!measuring) return;
+    const p = canvasXY(cv, e);
+    if (p[0] < 0 || p[1] < 0 || p[0] > W || p[1] > H) return;
+    mPts.push(p);
+    if (mPts.length === 2){
+      measuring = false; document.querySelector(".stage").classList.remove("measuring");
+      $("measureBtn").textContent = "Measure again…"; $("lineInfo").textContent = lineText() + " — now type its real length below and press Set scale.";
+      $("lineReal").focus();
+    } else $("lineInfo").textContent = "Now click the other end…";
+    scheduleRender();
+  });
+}
+$("applyScale").onclick = () => {
+  const u = $("unitSel").value, toMM = UNITS_MM[u];
+  let mmpp = null, src = "";
+  if (scaleMode === "line"){
+    const L = lineLen(), real = parseFloat($("lineReal").value);
+    if (!(L > 0)){ setStatus("Measure a line on the image first", true); return; }
+    if (!(real > 0)){ setStatus("Type the real length of the line", true); return; }
+    mmpp = real * toMM / L; src = `measured line ${L.toFixed(1)} px = ${real} ${UNIT_LABEL[u]}` + (videos[curVideo] ? ` on ${videos[curVideo].name.replace(/_every\d+$/, "")}` : "");
+  } else if (scaleMode === "pillar"){
+    const real = parseFloat($("pillarReal").value);
+    if (!(real > 0)){ setStatus("Type the real pillar spacing", true); return; }
+    mmpp = real * toMM / PILLAR_SPACING_PX; src = `pillar spacing ${real} ${UNIT_LABEL[u]} = ${PILLAR_SPACING_PX.toFixed(2)} px`;
+  } else {
+    const real = parseFloat($("directReal").value);
+    if (!(real > 0)){ setStatus("Type the size of one pixel", true); return; }
+    mmpp = real * toMM; src = `entered directly: 1 px = ${real} ${UNIT_LABEL[u]}`;
+  }
+  S.mm_per_px = mmpp; S.scale_unit = u; S.scale_source = src;
+  updateScaleUI(); changed(); if (results) drawChart();
+  if (scaleMode === "line") $("lineInfo").textContent = lineText();
+  setStatus("Scale set: 1 px = " + unitK().toPrecision(4) + " " + ulab());
+};
+$("clearScale").onclick = () => { S.mm_per_px = null; S.scale_source = ""; mPts = []; updateScaleUI(); changed(); if (results) drawChart(); setStatus("Scale cleared — results in pixels"); };
+
+// pixel readout
+const CLASS_NAMES = ["outside channel", "fluid", "bubble", "pillar"];
+for (const cv of [$("cOrig"), $("cRes")]){
+  cv.addEventListener("mousemove", e => {
+    if (!lastFrame) return;
+    const rect = cv.getBoundingClientRect();
+    // account for object-fit: contain letterboxing
+    const sc = Math.min(rect.width / W, rect.height / H);
+    const ox = (rect.width - W * sc) / 2, oy = (rect.height - H * sc) / 2;
+    const x = Math.floor((e.clientX - rect.left - ox) / sc), y = Math.floor((e.clientY - rect.top - oy) / sc);
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const i = y * W + x, d = lastFrame.img.data, hv = lastFrame.hsv;
+    $("readout").textContent = `x ${x} y ${y} · RGB ${d[i*4]},${d[i*4+1]},${d[i*4+2]} · H ${hv.h[i]} S ${hv.s[i]} V ${hv.v[i]} · ${CLASS_NAMES[lastSeg.cls[i]]}${lastSeg.iface[i] ? " (interface)" : ""}`;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Frame / view controls + keys
+// ---------------------------------------------------------------------------
+function setFrame(i){
+  if (!frames.length) return;
+  cur = Math.max(0, Math.min(frames.length - 1, i));
+  $("frame").value = cur; S.last_frame = cur;
+  scheduleRender(); clearTimeout(saveTimer); saveTimer = setTimeout(saveSettings, 800);
+}
+$("frame").addEventListener("input", e => setFrame(+e.target.value));
+$("prev").onclick = () => setFrame(cur - 1);
+$("next").onclick = () => setFrame(cur + 1);
+const VIEWS = ["overlay", "fluid", "bubble"];
+function setView(v){
+  view = v;
+  for (const b of $("viewSeg").children) b.classList.toggle("on", b.dataset.v === v);
+  scheduleRender();
+}
+for (const b of $("viewSeg").children) b.onclick = () => setView(b.dataset.v);
+document.addEventListener("keydown", e => {
+  const t = e.target;
+  if (t.tagName === "INPUT" && t.type !== "range") return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "m"){ setView(VIEWS[(VIEWS.indexOf(view) + 1) % 3]); e.preventDefault(); }
+  else if (k === "a" || (k === "arrowleft" && t.type !== "range")){ setFrame(cur - 1); e.preventDefault(); }
+  else if (k === "d" || (k === "arrowright" && t.type !== "range")){ setFrame(cur + 1); e.preventDefault(); }
+  else if (k === "r"){ doReset(); e.preventDefault(); }
+});
+
+// ---------------------------------------------------------------------------
+// Analyse all frames
+// ---------------------------------------------------------------------------
+$("runAll").onclick = async () => {
+  if (!frames.length) return;
+  $("runAll").disabled = true; $("saveCsv").disabled = true;
+  const st = {...S}; const rows = [];
+  const t0 = performance.now();
+  for (let i = 0; i < frames.length; i++){
+    const f = cache.has(i) ? cache.get(i) : (() => null)();
+    let hsv, img;
+    if (f){ hsv = f.hsv; }
+    else { img = await decode(await frames[i].file()); hsv = toHSV(img.data, W * H); }
+    const r = segment(hsv, st);
+    const orig = origFrame(i);
+    const {cls, iface, ...nums} = r;
+    rows.push({file:frames[i].name, idx:i, orig, t:orig / FPS, ...nums});
+    $("prog").style.width = (100 * (i + 1) / frames.length) + "%";
+    $("runInfo").textContent = `Analysing ${i + 1} / ${frames.length}…`;
+    if (i % 3 === 2) await new Promise(res => setTimeout(res));
+  }
+  results = {rows, settings:st, mm:st.mm_per_px, unit:st.scale_unit || "mm"};
+  const secs = ((performance.now() - t0) / 1000).toFixed(1);
+  const fl = rows.map(r => 100 * r.fluid_frac), bb = rows.map(r => 100 * r.bubble_frac);
+  const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+  $("runInfo").textContent = `${rows.length} frames in ${secs}s · mean fluid ${mean(fl).toFixed(1)}% · mean bubble ${mean(bb).toFixed(1)}%`;
+  $("chartWrap").hidden = false; drawChart();
+  $("runAll").disabled = false; $("saveCsv").disabled = false;
+  if (dirHandle) await saveCsv(true);
+};
+function csvName(){ return (videos[curVideo] ? videos[curVideo].name.replace(/_every\d+$/, "") : "video") + "_areas.csv"; }
+function csvText(){
+  const k = results.mm ? results.mm / UNITS_MM[results.unit] : null, u = results.unit;
+  const head = ["frame_file","original_frame","time_s","fluid_px","bubble_px","open_px","fluid_frac","bubble_frac","interface_px"];
+  if (k) head.push(`fluid_${u}2`, `bubble_${u}2`, `interface_${u}`, `${u}_per_px`);
+  const lines = [head.join(",")];
+  for (const r of results.rows){
+    const row = [r.file, r.orig, r.t.toFixed(4), r.fluid_px, r.bubble_px, r.open_px, r.fluid_frac.toFixed(6), r.bubble_frac.toFixed(6), r.interface_px.toFixed(2)];
+    if (k) row.push((r.fluid_px * k * k).toPrecision(8), (r.bubble_px * k * k).toPrecision(8), (r.interface_px * k).toPrecision(8), k.toPrecision(8));
+    lines.push(row.join(","));
+  }
+  return lines.join("\n") + "\n";
+}
+async function saveCsv(auto){
+  if (!results) return;
+  const txt = csvText();
+  if (dirHandle){
+    try {
+      const rd = await dirHandle.getDirectoryHandle("Results", {create:true});
+      const fh = await rd.getFileHandle(csvName(), {create:true});
+      const w = await fh.createWritable(); await w.write(txt); await w.close();
+      setStatus(`Saved Results/${csvName()} · ${new Date().toLocaleTimeString()}`);
+      return;
+    } catch(e){ setStatus("Couldn't write " + csvName() + " (" + e.message + ") — downloading instead", true); }
+  }
+  if (!auto) download(csvName(), txt, "text/csv");
+}
+$("saveCsv").onclick = () => saveCsv(false);
+
+// charts: (1) fluid % & bubble %, (2) interface length — one y-axis each; shared tooltip; click to jump
+const chart = $("chart"), chart2 = $("chart2"), tip = $("tip");
+const geoms = new Map();
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function niceMax(v){ if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p; return 10 * p; }
+const fmtK = v => v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : String(v);
+function drawOne(cv, series, yMax, ticks, fmt){
+  const dpr = window.devicePixelRatio || 1, cw = cv.clientWidth, ch = cv.clientHeight;
+  cv.width = cw * dpr; cv.height = ch * dpr;
+  const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, cw, ch);
+  const rows = results.rows, n = rows.length;
+  const L = 38, R = 8, T = 8, B = 22, pw = cw - L - R, ph = ch - T - B;
+  const tMax = rows[n - 1].t || 1;
+  const X = t => L + pw * t / tMax, Y = v => T + ph * (1 - v / yMax);
+  geoms.set(cv, {X, Y, L, T, pw, ph, tMax});
+  c.font = "11px system-ui, sans-serif"; c.fillStyle = cssVar("--muted"); c.strokeStyle = cssVar("--line"); c.lineWidth = 1;
+  for (const v of ticks){
+    c.beginPath(); c.moveTo(L, Math.round(Y(v)) + 0.5); c.lineTo(L + pw, Math.round(Y(v)) + 0.5); c.stroke();
+    c.textAlign = "right"; c.textBaseline = "middle"; c.fillText(fmt(v), L - 5, Y(v));
+  }
+  c.textAlign = "center"; c.textBaseline = "top";
+  const tStep = tMax > 150 ? 60 : tMax > 60 ? 30 : tMax > 15 ? 5 : tMax > 6 ? 2 : 1;
+  for (let t = 0; t <= tMax + 1e-9; t += tStep) c.fillText(t + "s", X(t), T + ph + 5);
+  for (const [get, col] of series){
+    c.strokeStyle = col; c.lineWidth = 2; c.lineJoin = "round"; c.beginPath();
+    rows.forEach((r, i) => { const x = X(r.t), y = Y(get(r)); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke();
+  }
+  const rc = rows[cur];
+  if (rc){
+    c.strokeStyle = cssVar("--ink2"); c.setLineDash([3, 3]); c.beginPath(); c.moveTo(X(rc.t) + 0.5, T); c.lineTo(X(rc.t) + 0.5, T + ph); c.stroke(); c.setLineDash([]);
+    for (const [get, col] of series){
+      c.fillStyle = col; c.strokeStyle = cssVar("--panel"); c.lineWidth = 2;
+      c.beginPath(); c.arc(X(rc.t), Y(get(rc)), 4.5, 0, 7); c.fill(); c.stroke();
+    }
+  }
+}
+function drawChart(){
+  if (!results) return;
+  drawOne(chart, [[r => 100 * r.fluid_frac, cssVar("--fluid")], [r => 100 * r.bubble_frac, cssVar("--bubble")]], 100, [0, 25, 50, 75, 100], v => v + "%");
+  const kk = results.mm ? results.mm / UNITS_MM[results.unit] : 1;
+  $("chart2Title").textContent = `Bubble–liquid interface length (${results.mm ? UNIT_LABEL[results.unit] : "px"})`;
+  const ym = niceMax(Math.max(...results.rows.map(r => r.interface_px * kk)) * 1.05);
+  drawOne(chart2, [[r => r.interface_px * kk, cssVar("--iface")]], ym, [0, ym / 4, ym / 2, 3 * ym / 4, ym], v => fmtK(+v.toPrecision(3)));
+}
+function nearestRow(cv, e){
+  const g = geoms.get(cv), rect = cv.getBoundingClientRect(), x = e.clientX - rect.left;
+  const t = (x - g.L) / g.pw * g.tMax;
+  let best = 0, bd = 1e9;
+  results.rows.forEach((r, i) => { const d = Math.abs(r.t - t); if (d < bd){ bd = d; best = i; } });
+  return best;
+}
+for (const cv of [chart, chart2]){
+  cv.addEventListener("mousemove", e => {
+    if (!results || !geoms.has(cv)) return;
+    const g = geoms.get(cv), i = nearestRow(cv, e), r = results.rows[i];
+    const kk = results.mm ? results.mm / UNITS_MM[results.unit] : null, ul = UNIT_LABEL[results.unit];
+    const mmL = kk ? ` · ${(r.interface_px * kk).toFixed(1)} ${ul}` : "";
+    tip.style.display = "block";
+    tip.innerHTML = `<b>${r.file}</b> · t = ${r.t.toFixed(2)} s<br><span style="color:var(--fluid)">■</span> Fluid ${(100*r.fluid_frac).toFixed(1)}% (${r.fluid_px.toLocaleString()} px)<br><span style="color:var(--bubble)">■</span> Bubble ${(100*r.bubble_frac).toFixed(1)}% (${r.bubble_px.toLocaleString()} px)<br><span style="color:var(--iface)">■</span> Interface ${Math.round(r.interface_px).toLocaleString()} px${mmL}`;
+    let left = g.X(r.t) + 10; if (left + tip.offsetWidth > cv.clientWidth) left = g.X(r.t) - tip.offsetWidth - 10;
+    tip.style.left = Math.max(0, left) + "px"; tip.style.top = (cv.offsetTop + g.T + g.ph * 0.35) + "px";
+  });
+  cv.addEventListener("mouseleave", () => tip.style.display = "none");
+  cv.addEventListener("click", e => { if (results) setFrame(nearestRow(cv, e)); });
+}
+window.addEventListener("resize", () => results && drawChart());
+
+syncUI();
+</script>
+</body>
+</html>

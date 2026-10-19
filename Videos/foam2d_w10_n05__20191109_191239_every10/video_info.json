@@ -1,0 +1,18 @@
+{
+  "fps": 30.00003000003,
+  "source_frames": 10001,
+  "width_raw": 384,
+  "height_raw": 1024,
+  "width": 384,
+  "height": 1024,
+  "kept": 1001,
+  "backend": "ffmpeg",
+  "source": "foam2d_w10_n05__20191109_191239.avi",
+  "source_bytes": 11802930176,
+  "step": 10,
+  "scale": 1.0,
+  "preview_fps": 3,
+  "seconds_per_kept_frame": 0.333333,
+  "complete": true,
+  "processed": "2026-10-19 13:41:21"
+}

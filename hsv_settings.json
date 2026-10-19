@@ -1,0 +1,18 @@
+{
+  "roi_y0": 44,
+  "roi_y1": 912,
+  "roi_x0": 5,
+  "roi_x1": 376,
+  "h_min": 88,
+  "h_max": 125,
+  "s_min": 95,
+  "s_max": 255,
+  "v_min": 40,
+  "v_max": 255,
+  "open_k": 3,
+  "close_k": 3,
+  "pillar_pad": 1,
+  "mm_per_px": null,
+  "scale_unit": "mm",
+  "scale_source": ""
+}
